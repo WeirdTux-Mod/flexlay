@@ -402,7 +402,7 @@ class LayerSelector:
                                 active_map = Workspace.current.get_map()
                                 
                                 active_map.layers.sort(key=lambda x: getattr(x, 'z_pos', 0) if not hasattr(x, 'tilemap_layer') else getattr(x.tilemap_layer, 'z_pos', 0))
-                                active_map.serial += 1 # Flag a structural serialization step update
+                                active_map.serial += 1
                         
                         from flexlay.workspace import Workspace
                         if Workspace.current and Workspace.current.get_map():
