@@ -348,7 +348,9 @@ class SuperTuxGUI:
         subprocess.Popen([Config.current.binary, level, "--play-demo", demo])
 
     def gui_resize_sector(self):
-        level = self.workspace.get_map().metadata
+        active_map = self.workspace.get_map()
+        level = active_map.metadata
+        
         dialog = self.gui.create_generic_dialog("Resize Sector")
         dialog.add_int("Width: ", level.width)
         dialog.add_int("Height: ", level.height)
@@ -356,10 +358,27 @@ class SuperTuxGUI:
         dialog.add_int("Y: ", 0)
 
         def on_callback(w, h, x, y):
+            import logging
+            from flexlay.math import Size, Point, Rect
+            
             logging.info("Resize Callback")
             level.resize(Size(w, h), Point(x, y))
+            
+            new_pixel_width = int(w) * 32
+            new_pixel_height = int(h) * 32
+            
+            active_map.set_bounding_rect(Rect(0, 0, new_pixel_width, new_pixel_height))
 
-        dialog.set_callback(on_callback)
+            from flexlay.gui.editor_map_component import EditorMapComponent
+            if hasattr(EditorMapComponent, "current") and EditorMapComponent.current:
+                comp = EditorMapComponent.current
+                comp.update_scrollbars()
+                
+                if hasattr(comp, 'editormap_widget') and comp.editormap_widget:
+                    comp.editormap_widget.update()
+                    comp.editormap_widget.repaint()
+
+        dialog.add_callback(on_callback)
 
     def gui_smooth_level_struct(self):
         logging.info("Smoothing level structure")
@@ -424,7 +443,7 @@ class SuperTuxGUI:
             level.contact = contact
             level.target_time = target_time
 
-        dialog.set_callback(on_callback)
+        dialog.add_callback(on_callback)
 
     def gui_edit_sector(self):
         level = self.workspace.get_map().metadata.get_level()
@@ -592,7 +611,7 @@ class SuperTuxGUI:
             def on_callback(datadir):
                 Config.current.datadir = datadir
 
-            dialog.set_callback(on_callback)
+            dialog.add_callback(on_callback)
 
     def new_level(self):
         pass
@@ -642,7 +661,11 @@ class SuperTuxGUI:
 
         # Do backup save if the file exists and is going to be saved permanently.
         if os.path.isfile(filename) and not is_tmp:
-            os.rename(filename, filename + "~")
+            backup_filename = filename + "~"
+            # window 10
+            if os.path.isfile(backup_filename):
+                os.remove(backup_filename)
+            os.rename(filename, backup_filename)
         level.save(filename)
         level.filename = filename
 

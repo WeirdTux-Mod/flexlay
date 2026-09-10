@@ -133,6 +133,8 @@ class LayerSelector:
                                "Delete This Layer",
                                self.remove_current_layer)
 
+        self.toolbar.addAction("Layer Properties", self.open_layer_properties)
+
         self.layout = QVBoxLayout(self.vbox)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.layout.addWidget(self.tree_view)
@@ -265,7 +267,6 @@ class LayerSelector:
         return self.get_layer(self.selected_index)
 
     def selection_changed(self, selected, deselected):
-        """Connected to LayerTreeView selectionChanged"""
         self.selected_index = selected
         tilemap_layer = self.get_selected()
         if tilemap_layer:
@@ -274,7 +275,6 @@ class LayerSelector:
                 self.hide_all()
                 self.set_hidden(selected, True)
 
-            # Set toggle button
             self.current_hidden.setChecked(tilemap_layer.hidden)
             if tilemap_layer.hidden:
                 self.current_hidden.setIcon(self.eye_closed_icon)
@@ -335,13 +335,78 @@ class LayerSelector:
 
         tilemap_object = self.editormap.remove_tilemap_layer(tilemap_layer)
         self.model.removeRow(index)
-        # Stop errors
         if self.selected_index == index:
             self.selected_index = -1
             self.tree_view.clearSelection()
-        # Update EditorMap
         EditorMapComponent.current.editormap_widget.repaint()
 
         return tilemap_object
+
+    def open_layer_properties(self):
+        tilemap_layer = self.get_selected()
+        if not tilemap_layer:
+            print("No layer selected.")
+            return
+
+        metadata_obj = getattr(tilemap_layer, "metadata", None)
+        if not metadata_obj:
+            print(":(")
+            return
+
+        from .editor_map_component import EditorMapComponent
+        main_window = None
+        if hasattr(EditorMapComponent, "current") and EditorMapComponent.current:
+            widget_child = EditorMapComponent.current.editormap_widget
+            p = widget_child.parent()
+            while p and p.__class__.__name__ != "FlexlayMainWindow":
+                p = p.parent()
+            main_window = p
+
+        if main_window:
+            from flexlay.gui.properties_widget import PropertiesWidget
+            props_panel = main_window.findChild(PropertiesWidget)
+
+            if props_panel:
+                from flexlay.property import FloatProperty, BoolProperty, IntProperty, StringProperty
+
+                def resize_width(new_w):
+                    try:
+                        w_val = int(new_w)
+                        if w_val > 0:
+                            from flexlay.math import Size, Point
+                            target.resize(Size(w_val, tilemap_layer.height), Point(0, 0))
+                            if hasattr(EditorMapComponent, "current") and EditorMapComponent.current:
+                                EditorMapComponent.current.editormap_widget.repaint()
+                    except ValueError:
+                        pass
+
+                def resize_height(new_h):
+                    try:
+                        h_val = int(new_h)
+                        if h_val > 0:
+                            from flexlay.math import Size, Point
+                            target.resize(Size(tilemap_layer.width, h_val), Point(0, 0))
+                            if hasattr(EditorMapComponent, "current") and EditorMapComponent.current:
+                                EditorMapComponent.current.editormap_widget.repaint()
+                    except ValueError:
+                        pass
+
+                props_list = [
+                    BoolProperty("Solid", "solid", metadata_obj.solid),
+                    FloatProperty("X Speed", "speed", metadata_obj.speed),
+                    FloatProperty("Y Speed", "speed_y", metadata_obj.speed_y),
+                    FloatProperty("Alpha", "alpha", metadata_obj.alpha),
+                    IntProperty("Z Position", "z_pos", metadata_obj.z_pos),
+                    StringProperty("Width", str(tilemap_layer.width), resize_width),
+                    StringProperty("Height", str(tilemap_layer.height), resize_height)
+                ]
+
+                for prop in props_list:
+                    prop.obj = metadata_obj
+                    prop.value = getattr(metadata_obj, prop.identifier, prop.default)
+
+                props_panel.set_properties(props_list)
+            else:
+                print("yo")
 
 # EOF #

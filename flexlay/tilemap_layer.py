@@ -41,6 +41,9 @@ class TilemapLayer(Layer):
         # Do not touch! Use LayerSelector to hide/show layers.
         self.hidden = False
 
+        from flexlay.util.signal import Signal
+        self.sig_changed = Signal()
+
         for y in range(0, self.field.height):
             for x in range(0, self.field.width):
                 self.field.put(x, y, 0)
@@ -256,4 +259,39 @@ class TilemapLayer(Layer):
     def has_bounding_rect(self):
         return True
 
+    @property
+    def properties(self):
+        from flexlay.property import FloatProperty, BoolProperty, IntProperty, StringProperty
+        
+        if hasattr(self, '_cached_props') and self._cached_props:
+            return self._cached_props
+
+        target = self.metadata if (hasattr(self, 'metadata') and self.metadata is not None) else self
+
+        def update_val(attr, val):
+            setattr(target, attr, val)
+            if hasattr(self, 'sig_changed'):
+                self.sig_changed()
+
+        self._cached_props = [
+            BoolProperty("Solid", getattr(target, "solid", False), 
+                         lambda v: update_val("solid", v)),
+            
+            FloatProperty("X Speed", getattr(target, "speed_x", 1.0), 
+                          lambda v: update_val("speed_x", v)),
+                          
+            FloatProperty("Y Speed", getattr(target, "speed_y", 1.0), 
+                          lambda v: update_val("speed_y", v)),
+            
+            IntProperty("Z Position", getattr(target, "z_pos", 0),
+                        lambda v: update_val("z_pos", v)),
+
+            IntProperty("Width", getattr(self, "width", 0),
+                        lambda v: update_val("width", v)),
+                        
+            IntProperty("Height", getattr(self, "height", 0),
+                        lambda v: update_val("height", v))
+        ]
+        
+        return self._cached_props
 # EOF #

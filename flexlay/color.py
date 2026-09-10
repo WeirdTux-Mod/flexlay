@@ -75,4 +75,17 @@ class Colorf:
                      int(255 * self.b),
                      int(255 * self.a))
 
+    def to_qt(self):
+        from PyQt4.QtGui import QColor
+        return QColor(int(self.r * 255),
+                      int(self.g * 255),
+                      int(self.b * 255),
+                      int(self.a * 255))
+
+    def to_hex(self):
+        r = int(self.r * 255)
+        g = int(self.g * 255)
+        b = int(self.b * 255)
+        return "#{:02x}{:02x}{:02x}".format(r, g, b)
+
 # EOF #

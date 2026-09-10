@@ -19,6 +19,8 @@ from PyQt4.QtGui import (QVBoxLayout, QLabel, QLineEdit, QFormLayout,
                          QRadioButton, QColorDialog, QWidget, QFileDialog,
                          QComboBox, QPushButton, QSpinBox)
 
+from PyQt4.QtCore import Qt
+
 from flexlay.gui import OpenFileDialog
 from flexlay.util import Config, Signal
 
@@ -58,7 +60,7 @@ class Item:
             return self.body.checkState() == Qt.Checked
 
         elif self.kind == Item.KIND_INT:
-            return int(self.body.text())
+            return int(self.body.value())
 
         elif self.kind == Item.KIND_FLOAT:
             return float(self.body.text())
@@ -67,8 +69,17 @@ class Item:
             return self.body.text()
 
         elif self.kind == Item.KIND_COLOR:
-            # FIXME: not implemented
-            return Color()
+            hex_str = str(self.body.text())
+            
+            if hex_str.startswith('#'):
+                hex_str = hex_str[1:]
+            
+            r = int(hex_str[0:2], 16)
+            g = int(hex_str[2:4], 16)
+            b = int(hex_str[4:6], 16)
+            
+            from flexlay.color import Color
+            return Color(r, g, b)
 
         else:
             assert False, "unknown item type: %r" % self.kind
@@ -133,9 +144,13 @@ class PropertiesWidget(QWidget):
     def add_int(self, name, value, callback=None):
         label = QLabel(name)
         inputbox = QSpinBox()
-        self.layout.addRow(label, inputbox)
+
+        inputbox.setMinimum(-99999)
+        inputbox.setMaximum(99999)
 
         inputbox.setValue(value)
+
+        self.layout.addRow(label, inputbox)
 
         self.items.append(Item(Item.KIND_INT, label, inputbox, callback=callback))
 
@@ -143,6 +158,7 @@ class PropertiesWidget(QWidget):
         label = QLabel(name)
         inputbox = QLineEdit()
         self.layout.addRow(label, inputbox)
+
         inputbox.setText(str(value))
 
         self.items.append(Item(Item.KIND_FLOAT, label, inputbox, callback=callback))
@@ -225,6 +241,8 @@ class PropertiesWidget(QWidget):
 
     def add_color(self, name, color, callback=None):
         """Not fully implemented according to Item class at the top."""
+        from PyQt4.QtGui import QColorDialog, QLabel, QPixmap, QIcon, QPushButton
+
         label = QLabel(name)
         pixmap = QPixmap(32, 32)
         pixmap.fill(color.to_qt())
@@ -237,8 +255,23 @@ class PropertiesWidget(QWidget):
             colorbutton.setIcon(icon)
             colorbutton.setText(qcolor.name())
 
-        self.layout.addRow(label, colorbutton)
+        def on_button_clicked():
+            new_qcolor = QColorDialog.getColor(color.to_qt(), self)
+            
+            if new_qcolor.isValid():
+                on_color(new_qcolor)
+                
+                color.r = new_qcolor.red() / 255.0
+                color.g = new_qcolor.green() / 255.0
+                color.b = new_qcolor.blue() / 255.0
+                color.a = new_qcolor.alpha() / 255.0
 
+                if callback:
+                    callback(color)
+
+        colorbutton.clicked.connect(on_button_clicked)
+
+        self.layout.addRow(label, colorbutton)
         self.items.append(Item(Item.KIND_COLOR, label, colorbutton, callback=callback))
 
     def call_callbacks(self, *args):

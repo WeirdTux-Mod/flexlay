@@ -139,4 +139,34 @@ class SuperTuxTileMap:
     def height(self):
         return self.tilemap_layer.height
 
+    @property
+    def properties(self):
+        from flexlay.property import FloatProperty, BoolProperty, IntProperty, StringProperty
+        
+        if hasattr(self, '_cached_props') and self._cached_props:
+            return self._cached_props
+
+        def update_val(attr, val):
+            setattr(self, attr, val)
+            from flexlay.gui.editor_map_component import EditorMapComponent
+            if hasattr(EditorMapComponent, "current") and EditorMapComponent.current:
+                EditorMapComponent.current.editormap_widget.repaint()
+
+        def update_name(val):
+            if self.tilemap_layer:
+                self.tilemap_layer.name = val
+            if hasattr(EditorMapComponent, "current") and EditorMapComponent.current:
+                EditorMapComponent.current.editormap_widget.repaint()
+
+        self._cached_props = [
+            StringProperty("Name", getattr(self, "name", ""), update_name),
+            BoolProperty("Solid", getattr(self, "solid", False), lambda v: update_val("solid", v)),
+            FloatProperty("X Speed", getattr(self, "speed", 1.0), lambda v: update_val("speed", v)),
+            FloatProperty("Y Speed", getattr(self, "speed_y", 1.0), lambda v: update_val("speed_y", v)),
+            FloatProperty("Alpha", getattr(self, "alpha", 1.0), lambda v: update_val("alpha", v)),
+            IntProperty("Z Position", getattr(self, "z_pos", 0), lambda v: update_val("z_pos", v))
+        ]
+        
+        return self._cached_props
+
 # EOF #
