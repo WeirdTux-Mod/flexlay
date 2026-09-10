@@ -47,7 +47,43 @@ class Property:
 
     def on_value_change(self, value):
         self.value = value
+        
+        if hasattr(self, 'obj') and self.obj:
+            attr_name = self.identifier
+            
+            class_name = self.__class__.__name__
+            if class_name == 'IntProperty':
+                try: typed_val = int(value)
+                except: typed_val = 0
+            elif class_name == 'FloatProperty':
+                try: typed_val = float(value)
+                except: typed_val = 0.0
+            elif class_name == 'BoolProperty':
+                typed_val = str(value).lower() in ['true', '1', '#t', 'yes', 'checked', 'true_'] or bool(value)
+            else:
+                typed_val = str(value)
 
+            setattr(self.obj, attr_name, typed_val)
+            
+            metadata_layer = getattr(self.obj, 'tilemap_layer', None)
+            if not metadata_layer and self.obj.__class__.__name__ == 'TilemapLayer':
+                metadata_layer = self.obj
+                
+            if metadata_layer:
+                if attr_name == "name": metadata_layer.name = str(typed_val)
+                elif attr_name == "solid": metadata_layer.solid = bool(typed_val)
+                elif attr_name == "speed": metadata_layer.speed_x = float(typed_val)
+                elif attr_name == "speed_y": metadata_layer.speed_y = float(typed_val)
+                elif attr_name == "z_pos": metadata_layer.z_pos = int(typed_val)
+
+        from flexlay.workspace import Workspace
+        if Workspace.current and Workspace.current.get_map():
+            Workspace.current.get_map().modify()
+            
+        from flexlay.gui.editor_map_component import EditorMapComponent
+        if hasattr(EditorMapComponent, "current") and EditorMapComponent.current:
+            if hasattr(EditorMapComponent.current, 'editormap_widget'):
+                EditorMapComponent.current.editormap_widget.repaint()
 
 class BoolProperty(Property):
     editable = True

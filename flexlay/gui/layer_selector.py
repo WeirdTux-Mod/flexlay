@@ -349,9 +349,7 @@ class LayerSelector:
             return
 
         metadata_obj = getattr(tilemap_layer, "metadata", None)
-        if not metadata_obj:
-            print(":(")
-            return
+        target = metadata_obj if metadata_obj else tilemap_layer
 
         from .editor_map_component import EditorMapComponent
         main_window = None
@@ -367,46 +365,68 @@ class LayerSelector:
             props_panel = main_window.findChild(PropertiesWidget)
 
             if props_panel:
-                from flexlay.property import FloatProperty, BoolProperty, IntProperty, StringProperty
+                props_panel.layout.parentWidget().setUpdatesEnabled(False)
+                while props_panel.layout.count():
+                    child = props_panel.layout.takeAt(0)
+                    if child.widget(): child.widget().deleteLater()
+                props_panel.items = []
 
-                def resize_width(new_w):
-                    try:
-                        w_val = int(new_w)
-                        if w_val > 0:
-                            from flexlay.math import Size, Point
-                            target.resize(Size(w_val, tilemap_layer.height), Point(0, 0))
-                            if hasattr(EditorMapComponent, "current") and EditorMapComponent.current:
-                                EditorMapComponent.current.editormap_widget.repaint()
-                    except ValueError:
-                        pass
+                def make_updater(attr_name, cast_type):
+                    def updater(new_val):
+                        typed = cast_type(new_val)
+                        setattr(target, attr_name, typed)
+                        
+                        if attr_name == "name": 
+                            tilemap_layer.name = str(typed)
+                            if self.selected_index >= 0 and len(self.items) > self.selected_index:
+                                self.items[self.selected_index].setText(str(typed))
+                                
+                        elif attr_name == "solid": 
+                            tilemap_layer.solid = bool(typed)
+                            if hasattr(target, 'solid'): target.solid = bool(typed)
+                            
+                        elif attr_name == "speed": 
+                            tilemap_layer.speed_x = float(typed)
+                            if hasattr(target, 'speed'): target.speed = float(typed)
+                            
+                        elif attr_name == "speed_y": 
+                            tilemap_layer.speed_y = float(typed)
+                            if hasattr(target, 'speed_y'): target.speed_y = float(typed)
+                            
+                        elif attr_name == "z_pos": 
+                            tilemap_layer.z_pos = int(typed)
+                            if hasattr(target, 'z_pos'): target.z_pos = int(typed)
+                            
+                            from flexlay.workspace import Workspace
+                            if Workspace.current and Workspace.current.get_map():
+                                active_map = Workspace.current.get_map()
+                                
+                                active_map.layers.sort(key=lambda x: getattr(x, 'z_pos', 0) if not hasattr(x, 'tilemap_layer') else getattr(x.tilemap_layer, 'z_pos', 0))
+                                active_map.serial += 1 # Flag a structural serialization step update
+                        
+                        from flexlay.workspace import Workspace
+                        if Workspace.current and Workspace.current.get_map():
+                            Workspace.current.get_map().modify()
+                            
+                        if hasattr(EditorMapComponent, "current") and EditorMapComponent.current:
+                            comp = EditorMapComponent.current
+                            comp.update_scrollbars()
+                            if hasattr(comp, 'editormap_widget') and comp.editormap_widget:
+                                comp.editormap_widget.update()
+                                comp.editormap_widget.repaint()
+                                
+                    return updater
 
-                def resize_height(new_h):
-                    try:
-                        h_val = int(new_h)
-                        if h_val > 0:
-                            from flexlay.math import Size, Point
-                            target.resize(Size(tilemap_layer.width, h_val), Point(0, 0))
-                            if hasattr(EditorMapComponent, "current") and EditorMapComponent.current:
-                                EditorMapComponent.current.editormap_widget.repaint()
-                    except ValueError:
-                        pass
+                props_panel.add_string("Name", str(getattr(target, "name", tilemap_layer.name)), make_updater("name", str))
+                props_panel.add_bool("Solid", bool(getattr(target, "solid", False)), make_updater("solid", bool))
+                props_panel.add_float("X Speed", float(getattr(target, "speed", 1.0)), make_updater("speed", float))
+                props_panel.add_float("Y Speed", float(getattr(target, "speed_y", 1.0)), make_updater("speed_y", float))
+                props_panel.add_float("Alpha", float(getattr(target, "alpha", 1.0)), make_updater("alpha", float))
+                props_panel.add_int("Z Position", int(getattr(target, "z_pos", 0)), make_updater("z_pos", int))
+                props_panel.add_int("Width (Read-Only)", int(tilemap_layer.width), lambda v: None)
+                props_panel.add_int("Height (Read-Only)", int(tilemap_layer.height), lambda v: None)
 
-                props_list = [
-                    BoolProperty("Solid", "solid", metadata_obj.solid),
-                    FloatProperty("X Speed", "speed", metadata_obj.speed),
-                    FloatProperty("Y Speed", "speed_y", metadata_obj.speed_y),
-                    FloatProperty("Alpha", "alpha", metadata_obj.alpha),
-                    IntProperty("Z Position", "z_pos", metadata_obj.z_pos),
-                    StringProperty("Width", str(tilemap_layer.width), resize_width),
-                    StringProperty("Height", str(tilemap_layer.height), resize_height)
-                ]
-
-                for prop in props_list:
-                    prop.obj = metadata_obj
-                    prop.value = getattr(metadata_obj, prop.identifier, prop.default)
-
-                props_panel.set_properties(props_list)
-            else:
-                print("yo")
+                props_panel.layout.parentWidget().setUpdatesEnabled(True)
+                props_panel.layout.parentWidget().update()
 
 # EOF #
