@@ -131,47 +131,53 @@ class PropertiesWidget(QWidget):
         self.layout.addRow(label)
         self.items.append(Item(Item.KIND_LABEL, label, None, None))
 
-    def add_bool(self, name, value, callback):
+    def add_bool(self, name, value, callback=None):
         label = QLabel(name)
         checkbox = QCheckBox()
+        checkbox.setChecked(bool(value))
+
+        if callback:
+            checkbox.stateChanged.connect(lambda state: callback(checkbox.isChecked()))
+
         self.layout.addRow(label, checkbox)
-
-        if value:
-            checkbox.setCheckState(Qt.Checked)
-
         self.items.append(Item(Item.KIND_BOOL, label, checkbox, callback=callback))
 
     def add_int(self, name, value, callback=None):
         label = QLabel(name)
         inputbox = QSpinBox()
-
         inputbox.setMinimum(-99999)
         inputbox.setMaximum(99999)
+        inputbox.setValue(int(value))
 
-        inputbox.setValue(value)
+        if callback:
+            inputbox.valueChanged.connect(lambda val: callback(int(val)))
 
         self.layout.addRow(label, inputbox)
-
         self.items.append(Item(Item.KIND_INT, label, inputbox, callback=callback))
 
     def add_float(self, name, value, callback=None):
         label = QLabel(name)
         inputbox = QLineEdit()
-        self.layout.addRow(label, inputbox)
-
         inputbox.setText(str(value))
 
+        if callback:
+            inputbox.editingFinished.connect(lambda: callback(float(inputbox.text() or 0.0)))
+
+        self.layout.addRow(label, inputbox)
         self.items.append(Item(Item.KIND_FLOAT, label, inputbox, callback=callback))
 
-    def add_string(self, name, value, callback=None, placeholder=None):
+    def add_string(self, name, value, callback=None, placeholder=""):
         label = QLabel(name)
         inputbox = QLineEdit()
-        self.layout.addRow(label, inputbox)
-
-        inputbox.setText(value)
-        if placeholder is not None:
+        inputbox.setText(str(value))
+        
+        if placeholder:
             inputbox.setPlaceholderText(placeholder)
 
+        if callback:
+            inputbox.editingFinished.connect(lambda: callback(str(inputbox.text())))
+
+        self.layout.addRow(label, inputbox)
         self.items.append(Item(Item.KIND_STRING, label, inputbox, callback=callback))
 
     def add_file(self, label, default, ret_rel_to=None, show_rel_to=None, open_in=None, filters=("All Files (*)",),

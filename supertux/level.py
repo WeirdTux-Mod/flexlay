@@ -80,16 +80,19 @@ class Level:
         self.target_time = get_value_from_tree(["target-time", "_"], data, 0)
         self.tileset_path = get_value_from_tree(["tileset", "_"], data, os.path.join("images", "tiles.strf"))
 
-        # Check tileset path is somewhat valid
         if len(self.tileset_path) < 1:
             self.tileset_path = os.path.join("images", "tiles.strf")
 
-        # Sort out tileset path beginning with os.sep
-        if self.tileset_path[0] == os.sep:
+        self.tileset_path = self.tileset_path.replace("\\", "/")
+
+        if len(self.tileset_path) < 1:
+            self.tileset_path = "images/tiles.strf"
+
+        if self.tileset_path.startswith("/") or self.tileset_path.startswith("\\"):
             if len(self.tileset_path) > 1:
-                self.tileset_path = self.tileset_path[1:]  # Remove os.sep
+                self.tileset_path = self.tileset_path[1:]
             else:
-                self.tileset_path = os.path.join("images", "tiles.strf")  # Reset to default
+                self.tileset_path = "images/tiles.strf"
 
         self.current_sector = None
         self.sectors = []
